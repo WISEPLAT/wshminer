@@ -1,0 +1,59 @@
+version: "{build}"
+branches:
+  only:
+    - master
+    - /v\d+\..+/
+    - /release.*/
+    - appveyor
+clone_depth: 1
+os: Visual Studio 2015
+configuration:
+  - Release
+  - RelWithDebInfo
+environment:
+  GITHUB_USER_PASSWORD:
+    secure: eIK+BeenFB63K9FFsSq9FV6+RnUNREfGmCkSw6rhwB8=
+
+install: | # Download CUDA Windows installer (local) and extract /compiler/* to /CUDA/vX.0/ zip archive.
+  git submodule update --init --recursive
+  appveyor DownloadFile https://github.com/wiseplat/cpp-dependencies/releases/download/cache/CUDA-v9.0-WindowsServer2012.zip
+  7z x CUDA-v9.0-WindowsServer2012.zip -oC:/
+  set PATH=%PATH%;C:/CUDA/v9.0/bin
+  nvcc -V
+  set PATH=C:\Python36-x64;C:\Python36-x64\Scripts;%PATH%
+  pip install requests
+before_build:
+  - cmake -G "Visual Studio 14 2015 Win64" -H. -Bbuild -DWSHASHCUDA=ON -DAPICORE=ON
+build_script:
+  - cmake --build build --config %CONFIGURATION%
+after_build:
+  ps: |
+    cmake --build build --config $env:configuration --target package
+    if ($env:configuration -ne "Release") {
+      Get-Item build/wshminer-*-Windows.* | Rename-Item -NewName { $_.name -Replace 'wshminer','wshminer-dbg' }
+    }
+    if (-not $env:appveyor_pull_request_number) {
+      cmake --build build --target hunter_upload_cache
+    }
+
+artifacts:
+  - path: build/wshminer-*.zip
+    name: wshminer
+
+before_deploy:
+  # Read variables dumped by CMake configuration.
+  - ps: . build/variables.ps1
+deploy:
+  # Create GitHub release, also set the release name and description.
+  provider: GitHub
+  tag: $(appveyor_repo_tag_name)
+  release: wshminer $(wshminer_version)
+  description: ''
+  force_update: true  # Force update in case Travis CI created the release before.
+  prerelease: $(wshminer_version_is_prerelease)
+  draft: false
+  artifact: wshminer
+  auth_token:
+    secure: l29VOPqdbOtNNjRL5BJH5Z8+WW0oVIDV7SNBLba8JjvVtteNZ9kjganrfMB92Kl+
+  on:
+    appveyor_repo_tag: true

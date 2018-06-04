@@ -1,0 +1,2 @@
+$env:wshminer_version="@PROJECT_VERSION@"
+$env:wshminer_version_is_prerelease="@PROJECT_VERSION_IS_PRERELEASE@"

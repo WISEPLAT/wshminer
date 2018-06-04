@@ -1,0 +1,60 @@
+language: cpp
+env:
+  global:
+    - secure: "$GITHUB_API_KEY"
+branches:
+    only:
+        - /^v\d+\..+$/
+        - master
+        - ci
+        - travis
+        - hunter
+        - /^release.*$/
+matrix:
+    include:
+        - os: linux
+          dist: trusty
+          sudo: required
+          env: CUDA=ON
+        - os: osx
+          osx_image: xcode9.1
+          env: CUDA=OFF
+cache:
+    directories:
+        - $HOME/.local
+before_install: |
+    if [ "$CUDA" = ON ]; then
+      . scripts/install-cuda-ubuntu1604.sh
+    fi
+    if [ "$TRAVIS_OS_NAME" = linux ]; then
+      scripts/install_cmake.sh
+      pyenv local 3.6
+      pip install --user requests
+    elif [ "$TRAVIS_OS_NAME" == "osx" ]; then
+      HOMEBREW_NO_AUTO_UPDATE=1 brew install -q python3
+      pip3 install -q requests
+    fi
+script:
+    - cmake -DHUNTER_JOBS_NUMBER=4 -DWSHASHCUDA=$CUDA -DWSHASHCL=ON -DAPICORE=ON -H. -Bbuild
+    - cmake --build build -- -j4
+    - build/wshminer/wshminer --list-devices -G
+    - build/wshminer/wshminer --list-devices -U
+    - if [ "$TRAVIS_OS_NAME" = linux ]; then ldd -v build/wshminer/wshminer; fi
+    - if [ "$TRAVIS_OS_NAME" = osx ]; then otool -L build/wshminer/wshminer; fi
+    - cmake --build build --target package
+
+deploy:
+  - provider: script
+    script: make -C build hunter_upload_cache
+    skip_cleanup: true
+    on:
+      all_branches: true
+
+  - provider: releases
+    api_key:
+      secure: "$GITHUB_API_KEY"
+    file_glob: true
+    file: build/wshminer-*.tar.gz
+    skip_cleanup: true
+    on:
+      tags: true

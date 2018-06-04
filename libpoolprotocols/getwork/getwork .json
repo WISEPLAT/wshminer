@@ -1,0 +1,7 @@
+[
+	{ "name": "wsh_getWork", "params": [], "order": [], "returns": []},
+	{ "name": "wsh_submitWork", "params": ["", "", ""], "order": [], "returns": true},
+	{ "name": "wsh_submitHashrate", "params": ["", ""], "order": [], "returns": true},
+	{ "name": "wsh_awaitNewWork", "params": [], "order": [], "returns": []},
+	{ "name": "wsh_progress", "params": [], "order": [], "returns": true}
+]
